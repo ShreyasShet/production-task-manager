@@ -1,5 +1,6 @@
 package com.ShreyasShet.taskserver;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.io.IOException;
@@ -19,14 +20,16 @@ class Task{
     String description;
     Instant createdAt;
 
-    Task(int id, String title, String status, String description){
-        this.id = id;
-        this.title = title;
-        this.status = status;
-        this.description = description;
-        this.createdAt = Instant.now();
-    }
+    public Task() {}
     
+    //setters
+    public void setId(int id) { this.id = id; }
+    public void setTitle(String title) { this.title = title; }
+    public void setStatus(String status) { this.status = status; }
+    public void setDescription(String description) { this.description = description; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    //getters
     public int getId() { return id; }
     public String getTitle() { return title; }
     public String getStatus() { return status; }
@@ -36,8 +39,8 @@ class Task{
 
 public class Server{
     static List<Task> taskRepository = new ArrayList<>();
+    private static int nextId = 1;
     public static void main(String[] args) throws IOException {
-        taskRepository.add(new Task(1, "Learn docker", "TODO", "install docker desktop"));
         
         HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
 
@@ -65,18 +68,41 @@ public class Server{
             }
         });
 
+        ObjectMapper mapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         server.createContext("/tasks", exchange -> {
-            Headers header = exchange.getResponseHeaders();
-            header.set("Content-Type", "application/json");
+            try {
+                String method = exchange.getRequestMethod();
+                if ("POST".equals(method)) {
+                    Task task = mapper.readValue(exchange.getRequestBody(), Task.class);
 
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.registerModule(new JavaTimeModule());
-            byte[] responseBytes = mapper.writeValueAsBytes(taskRepository);
+                    task.setId(nextId++);
+                    task.setCreatedAt(Instant.now());
 
-            exchange.sendResponseHeaders(200, responseBytes.length);
+                    taskRepository.add(task);
 
-            try(OutputStream stream = exchange.getResponseBody()){
-                stream.write(responseBytes);
+                    byte[] response = mapper.writeValueAsBytes(task);
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(201, response.length);
+                    try (OutputStream stream = exchange.getResponseBody()) {
+                        stream.write(response);
+                    }
+                } else if ("GET".equals(method)) {
+                    Headers header = exchange.getResponseHeaders();
+                    header.set("Content-Type", "application/json");
+                    byte[] responseBytes = mapper.writeValueAsBytes(taskRepository);
+                    exchange.sendResponseHeaders(200, responseBytes.length);
+                    try (OutputStream stream = exchange.getResponseBody()) {
+                        stream.write(responseBytes);
+                    }
+                } else {
+                    exchange.sendResponseHeaders(405, -1);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                exchange.sendResponseHeaders(500, -1);
+                exchange.close();
             }
         });
 
