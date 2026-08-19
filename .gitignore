@@ -2,4 +2,5 @@ cat > .gitignore << 'EOF'
 target/
 *.class
 *.iml
+.vscode
 EOF
