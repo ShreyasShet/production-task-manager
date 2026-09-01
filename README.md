@@ -11,8 +11,8 @@ This project started as a Task Management REST API built on a raw `com.sun.net.h
 ## Migration Progress
 The migration is being carried out in a structured format:
 
-- [ ] Building out `TaskController` (in progress)
-- [ ] Service layer refactor for Spring
+- [x] Building out `TaskController`
+- [x] Service layer refactor for Spring
 - [ ] Repository layer (moving off in-memory storage)
 - [ ] Validation & error handling
 - [ ] Testing (unit + integration)
