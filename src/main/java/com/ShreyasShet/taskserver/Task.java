@@ -2,8 +2,11 @@ package com.ShreyasShet.taskserver;
 
 import java.time.Instant;
 
+import jakarta.validation.constraints.NotBlank;
+
 public class Task {
     int id;
+    @NotBlank(message = "Title is required")
     String title;
     String status;
     String description;
