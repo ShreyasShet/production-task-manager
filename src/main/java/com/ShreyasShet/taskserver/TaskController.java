@@ -2,6 +2,7 @@ package com.ShreyasShet.taskserver;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,5 +42,16 @@ public class TaskController {
     public ResponseEntity<Task> addNewTask(@Valid @RequestBody Task task){
         Task created = taskRepository.addTask(task);
         return ResponseEntity.status(HttpStatus.CREATED).body(created); //201 + body
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Task> deleteTaskById(@PathVariable  int id){
+        Optional<Task> maybeTask = taskRepository.getTaskById(id);
+        if(maybeTask.isPresent()){
+            taskRepository.deleteTask(id);
+            return ResponseEntity.accepted().body(maybeTask.get());
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
     }
 }
