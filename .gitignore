@@ -5,3 +5,4 @@ target/
 .vscode
 EOF
 data/
+.DS_Store
