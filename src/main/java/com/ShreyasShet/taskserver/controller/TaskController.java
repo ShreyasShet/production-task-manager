@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,12 +30,12 @@ public class TaskController {
 
     @GetMapping
     public List<Task> listAllTasks(){
-        return taskRepository.getAllTasks();
+        return taskRepository.findAll();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Task> listTaskById(@PathVariable int id){
-        Optional<Task> maybeTask = taskRepository.getTaskById(id);
+    public ResponseEntity<Task> listTaskById(@PathVariable Integer id){
+        Optional<Task> maybeTask = taskRepository.findById(id);
         if(maybeTask.isPresent())
             return ResponseEntity.ok(maybeTask.get()); //200 + body
         else
@@ -43,18 +44,33 @@ public class TaskController {
 
     @PostMapping
     public ResponseEntity<Task> addNewTask(@Valid @RequestBody Task task){
-        Task created = taskRepository.addTask(task);
+        Task created = taskRepository.save(task);
         return ResponseEntity.status(HttpStatus.CREATED).body(created); //201 + body
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Task> deleteTaskById(@PathVariable  int id){
-        Optional<Task> maybeTask = taskRepository.getTaskById(id);
+    public ResponseEntity<Task> deleteTaskById(@PathVariable  Integer id){
+        Optional<Task> maybeTask = taskRepository.findById(id);
         if(maybeTask.isPresent()){
-            taskRepository.deleteTask(id);
+            taskRepository.deleteById(id);
             return ResponseEntity.accepted().body(maybeTask.get());
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Task> updateTask(@PathVariable Integer id, @Valid @RequestBody Task updatedTask) {
+        return taskRepository.findById(id)
+            .map(existingTask -> {
+                existingTask.setTitle(updatedTask.getTitle());
+                existingTask.setStatus(updatedTask.getStatus());
+                existingTask.setDescription(updatedTask.getDescription());
+                
+                Task savedTask = taskRepository.save(existingTask);
+
+                return ResponseEntity.ok(savedTask);
+            })
+            .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }
