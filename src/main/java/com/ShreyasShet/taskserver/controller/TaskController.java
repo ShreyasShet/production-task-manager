@@ -1,7 +1,7 @@
 package com.ShreyasShet.taskserver.controller;
 
 import com.ShreyasShet.taskserver.model.Task;
-import com.ShreyasShet.taskserver.repository.TaskRepository;
+import com.ShreyasShet.taskserver.service.TaskService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,64 +13,45 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import jakarta.validation.Valid;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/tasks")
 public class TaskController {
-    private final TaskRepository taskRepository;
+    private final TaskService service;
     
-    public TaskController(TaskRepository taskRepository){
-        this.taskRepository = taskRepository;
+    public TaskController(TaskService service){
+        this.service = service;
     }
 
     @GetMapping
     public List<Task> listAllTasks(){
-        return taskRepository.findAll();
+        return service.getAllTasks();
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Task> listTaskById(@PathVariable Integer id){
-        Optional<Task> maybeTask = taskRepository.findById(id);
-        if(maybeTask.isPresent())
-            return ResponseEntity.ok(maybeTask.get()); //200 + body
-        else
-            return ResponseEntity.notFound().build(); //404 + body
+        Task t = service.getTask(id);
+        return ResponseEntity.ok(t); //200 + body
     }
 
     @PostMapping
     public ResponseEntity<Task> addNewTask(@Valid @RequestBody Task task){
-        Task created = taskRepository.save(task);
+        Task created = service.createTask(task);
         return ResponseEntity.status(HttpStatus.CREATED).body(created); //201 + body
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Task> deleteTaskById(@PathVariable  Integer id){
-        Optional<Task> maybeTask = taskRepository.findById(id);
-        if(maybeTask.isPresent()){
-            taskRepository.deleteById(id);
-            return ResponseEntity.accepted().body(maybeTask.get());
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
+        Task deletedTask = service.deleteTask(id);
+        return ResponseEntity.ok(deletedTask);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Task> updateTask(@PathVariable Integer id, @Valid @RequestBody Task updatedTask) {
-        return taskRepository.findById(id)
-            .map(existingTask -> {
-                existingTask.setTitle(updatedTask.getTitle());
-                existingTask.setStatus(updatedTask.getStatus());
-                existingTask.setDescription(updatedTask.getDescription());
-                
-                Task savedTask = taskRepository.save(existingTask);
-
-                return ResponseEntity.ok(savedTask);
-            })
-            .orElseGet(() -> ResponseEntity.notFound().build());
+        Task savedTask = service.updateTask(id, updatedTask);
+        return ResponseEntity.ok(savedTask);
     }
 }
