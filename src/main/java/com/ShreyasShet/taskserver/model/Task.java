@@ -1,6 +1,9 @@
 package com.ShreyasShet.taskserver.model;
 
 import java.time.Instant;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 
@@ -8,6 +11,7 @@ import jakarta.validation.constraints.NotBlank;
 public class Task {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     public Integer id;
     @Column(nullable = false)
     @NotBlank(message = "Title is required")
