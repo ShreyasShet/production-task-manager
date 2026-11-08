@@ -5,28 +5,76 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-persistent-blue)]()
 [![Status](https://img.shields.io/badge/status-in%20development-yellow)]()
 
-A task management REST API built with Java, Spring Boot, and PostgreSQL. The project is a deliberate exercise in backend engineering: each layer (HTTP, framework, storage) was built, stress-tested, and understood before the next one was added, with the goal of ending up with a service that is containerized, tested, deployed, and observable.
+A task-tracking REST API that treats every task as a workflow item with a
+controlled lifecycle and a full audit trail, rather than a plain CRUD record.
 
-## How it got here
+### Task lifecycle
 
-The project started as a bare HTTP server on `com.sun.net.httpserver`, with manual routing, hand-wired dependencies, and an in-memory list of tasks. That version proved out the domain and the API shape. It was then migrated to Spring Boot, which replaced manual routing and wiring with declarative controllers and dependency injection while keeping the original layered design intact.
+```mermaid
+stateDiagram-v2
+    state "in-progress" as in_progress
+    [*] --> planned: create
+    planned --> in_progress: start work
+    in_progress --> planned: put back
+    in_progress --> done: complete
+    done --> in_progress: reopen
+```
 
-Storage went through the same progression. Tasks lived in memory first, then in a file, and the file-backed version was stress-tested until its limits were clear: concurrent writes, slow lookups, no atomicity on crashes, no enforced consistency, and no safe way for multiple clients to share it. Each of those failures is addressed by a specific PostgreSQL mechanism, which is why tasks now live in a real database.
+| From \ To | planned | in-progress | done |
+|---|---|---|---|
+| **planned** | – | ✓ | ✗ |
+| **in-progress** | ✓ | – | ✓ |
+| **done** | ✗ | ✓ | – |
+
+- A new task must start as `planned`; any other initial status is rejected (400).
+- Tasks cannot skip `in-progress`, so the history always records when work started.
+- A finished task can be reopened, but only back to `in-progress`.
+- An illegal transition returns **409 Conflict** and names the current and requested status.
+
+### Audit trail
+
+Every status change writes one row to `task_status_history`:
+task, previous status, new status, timestamp. Task creation is recorded as
+`null → planned`.
+
+- Rows are insert-only at the application level (non-updatable fields, no update/delete paths).
+- Indexed on `(task_id, changed_at)` for fast "history of this task" lookups.
+- Deleting a task removes its history via `ON DELETE CASCADE`.
 
 ## Architecture
 
-Requests flow through a controller, then the business logic, then a Spring Data JPA repository backed by PostgreSQL. Spring's IoC container manages object lifecycles, routing is declarative through `@RequestMapping`, and validation errors are handled centrally with `@RestControllerAdvice`.
+```mermaid
+flowchart LR
+    client([HTTP client])
 
-Persistence is handled by Hibernate on top of a HikariCP connection pool. The `Task` entity uses an identity-generated integer key, with `NOT NULL` constraints on `title` and `createdAt` and a `CHECK` constraint limiting `status` to `planned`, `in-progress`, or `done`. These database-level rules mirror the `@Valid` checks in the API layer, so bad data is rejected at both boundaries. The `createdAt` timestamp is set automatically on insert.
+    subgraph app [Spring Boot application]
+        direction LR
+        controller["TaskController<br/>(routing)"]
+        service["TaskService<br/>(transition rules)"]
+        repos["TaskRepository / HistoryRepository<br/>(Spring Data JPA)"]
+        orm["Hibernate + HikariCP pool"]
+        advice["Exception Handlers<br/>"]
+    end
+
+    subgraph db [PostgreSQL]
+        task[("task")]
+        history[("task_status_history")]
+    end
+
+    client -->|JSON request| controller --> service --> repos --> orm
+    orm --> task
+    orm --> history
+    service -. exceptions .-> advice -. error response .-> client
+```
 
 ## Tech Stack
 
 **Implemented**
 - Java 17
 - Spring Boot 4.1.0
+- PostgreSQL — persistent storage
 
 **Planned**
-- PostgreSQL — persistent storage
 - Docker / Docker Compose — containerization
 - Nginx — reverse proxy
 - GitHub Actions — CI/CD
@@ -63,8 +111,6 @@ cd production-task-manager
 ```bash
 createdb taskmanager
 ```
-
-On first startup, Hibernate creates the `task` table automatically, including its constraints, so there is no schema to apply by hand. Data persists across restarts.
 
 ### 3. Configure the connection
 
