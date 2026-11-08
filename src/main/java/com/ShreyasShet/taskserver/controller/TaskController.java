@@ -1,6 +1,8 @@
 package com.ShreyasShet.taskserver.controller;
 
 import com.ShreyasShet.taskserver.model.Task;
+import com.ShreyasShet.taskserver.model.TaskCreateDTO;
+import com.ShreyasShet.taskserver.model.TaskUpdateDTO;
 import com.ShreyasShet.taskserver.service.TaskService;
 
 import org.springframework.http.HttpStatus;
@@ -38,7 +40,7 @@ public class TaskController {
     }
 
     @PostMapping
-    public ResponseEntity<Task> addNewTask(@Valid @RequestBody Task task){
+    public ResponseEntity<Task> addNewTask(@Valid @RequestBody TaskCreateDTO task){
         Task created = service.createTask(task);
         return ResponseEntity.status(HttpStatus.CREATED).body(created); //201 + body
     }
@@ -50,7 +52,7 @@ public class TaskController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Task> updateTask(@PathVariable Integer id, @Valid @RequestBody Task updatedTask) {
+    public ResponseEntity<Task> updateTask(@PathVariable Integer id, @Valid @RequestBody TaskUpdateDTO updatedTask) {
         Task savedTask = service.updateTask(id, updatedTask);
         return ResponseEntity.ok(savedTask);
     }

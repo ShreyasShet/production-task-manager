@@ -7,9 +7,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ShreyasShet.taskserver.model.History;
 import com.ShreyasShet.taskserver.model.Task;
+import com.ShreyasShet.taskserver.model.TaskCreateDTO;
+import com.ShreyasShet.taskserver.model.TaskUpdateDTO;
 import com.ShreyasShet.taskserver.repository.HistoryRepository;
 import com.ShreyasShet.taskserver.repository.TaskRepository;
 import com.ShreyasShet.taskserver.exception.InvalidStatusTransitionException;
+import com.ShreyasShet.taskserver.exception.ConflictException;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -42,25 +45,33 @@ public class TaskService {
     }
 
     @Transactional
-    public Task createTask(Task task) {
-        if (task.getStatus() == null) {
-            task.setStatus("planned");
-        } else if (!task.getStatus().equals("planned")) {
+    public Task createTask(TaskCreateDTO request) {
+        if (request.getStatus() == null) {
+            request.setStatus("planned");
+        } else if (!request.getStatus().equals("planned")) {
             throw new IllegalArgumentException("A new task must start with planned status");
         }
 
+        Task task = new Task();
+        task.setTitle(request.getTitle());
+        task.setDescription(request.getDescription());
+        task.setStatus("planned");
         Task saved = taskRepository.save(task);
         recordHistory(saved.getId(), null, saved.getStatus());
         return saved;
     }
 
     @Transactional
-    public Task updateTask(Integer id, Task incoming) {
+    public Task updateTask(Integer id, TaskUpdateDTO request) {
         Task existing = taskRepository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Task " + id + " not found"));
 
+        if (!existing.getVersion().equals(request.getVersion())) {
+                throw new ConflictException("Task was modified by someone else");
+        }
+
         String oldStatus = existing.getStatus();
-        String newStatus = incoming.getStatus();
+        String newStatus = request.getStatus();
 
         if (newStatus == null) {
             throw new IllegalArgumentException("Status is required");
@@ -71,16 +82,14 @@ public class TaskService {
             validateTransition(oldStatus, newStatus);   // before changing anything
         }
 
-        existing.setTitle(incoming.getTitle());
-        existing.setDescription(incoming.getDescription());
+        existing.setTitle(request.getTitle());
+        existing.setDescription(request.getDescription());
         existing.setStatus(newStatus);
-
-        Task saved = taskRepository.save(existing);
 
         if (statusChanged) {
             recordHistory(id, oldStatus, newStatus);
         }
-        return saved;
+        return existing;
     }
 
     @Transactional

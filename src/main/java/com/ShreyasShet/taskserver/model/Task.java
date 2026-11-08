@@ -21,6 +21,8 @@ public class Task {
     public String description;
     @Column(nullable = false, updatable = false)
     public Instant createdAt;
+    @Version 
+    private Long version;
 
     @PrePersist
     protected void onCreate() { createdAt = Instant.now(); }
@@ -31,6 +33,7 @@ public class Task {
     public String getStatus() { return status; }
     public String getDescription() { return description; }
     public Instant getCreatedAt() { return createdAt; }
+    public Long getVersion() { return version; }
 
     //standard setters
     public void setId(Integer id) { this.id = id; }
